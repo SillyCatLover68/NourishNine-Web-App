@@ -96,11 +96,10 @@ export const culturalFoods: CulturalFood[] = [
       },
       {
         name: 'Coconut in Cooking',
-        description: 'Used widely (milk, oil) in many islands and mainland cuisines—nutritious but not the only ingredient',
+        description: 'Used in many dishes, provides healthy fats',
         nutrients: ['Healthy Fats', 'Fiber'],
         safeDuringPregnancy: true,
         budgetFriendly: true,
-        notes: 'Coconut is one ingredient among many; don\'t rely on a single food to represent a whole culture.',
         preparation: 'Use coconut milk in curries, soups, or use fresh coconut in moderation'
       }
     ]
