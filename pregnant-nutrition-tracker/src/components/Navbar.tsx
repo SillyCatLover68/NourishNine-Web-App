@@ -16,7 +16,7 @@ export default function Navbar() {
             <span>🌿</span>
             <span>NourishNine</span>
           </Link>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {isLoggedIn ? (
               <>
                 <Link to="/dashboard" className={`flex items-center gap-1 px-3 py-2 rounded-lg transition-colors ${location.pathname === "/dashboard" ? "bg-pink-100 text-pink-600" : "text-gray-600 hover:bg-gray-100"}`}>

@@ -23,8 +23,8 @@ export default function Landing() {
             <span className="text-pink-600">Made Easy</span>
           </h1>
           <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-            Help low-income pregnant women make safe, affordable, nutritious food choices — 
-            even when cravings hit — by connecting what you want with what your body actually needs.
+            A web-app to help pregnant women in making safe, affordable and healthy food choices. 
+            We connect what you want with what your body actually needs.
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
@@ -46,7 +46,7 @@ export default function Landing() {
             to="/quick-quiz"
             className="inline-block text-pink-600 hover:text-pink-700 font-semibold text-lg mb-16"
           >
-            🎯 Tell us your cravings! →
+            Tell us your cravings! →
           </Link>
 
           {/* Features Grid */}
