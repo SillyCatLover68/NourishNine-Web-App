@@ -11,10 +11,9 @@ export default function Navbar() {
   return (
     <nav className="bg-white shadow-md">
       <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-24">
           <Link to="/" className="flex items-center gap-2 text-xl font-bold text-pink-600">
-            <span>🌿</span>
-            <span>NourishNine</span>
+            <img src="/logo.png" alt="NourishNine logo" className="w-24 h-24 object-contain" />
           </Link>
           <div className="flex items-center gap-3">
             {isLoggedIn ? (

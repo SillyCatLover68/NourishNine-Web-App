@@ -24,7 +24,7 @@ export default function Landing() {
           </h1>
           <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
             A web-app to help pregnant women in making safe, affordable and healthy food choices. 
-            We connect what you want with what your body actually needs.
+            We connect what you want with what your body actually needs. Made for Neodev 2025.
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
