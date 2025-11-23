@@ -23,7 +23,7 @@ export default function Landing() {
             <span className="text-pink-600">Made Easy</span>
           </h1>
           <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-            A web-app to help pregnant women in making safe, affordable and healthy food choices. 
+            A web-app designed to help pregnant women in making safe, affordable and healthy food choices. 
             We connect what you want with what your body actually needs. Made for Neodev 2025.
           </p>
           
