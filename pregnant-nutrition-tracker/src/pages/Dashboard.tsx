@@ -78,7 +78,7 @@ export default function Dashboard() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">
-            {user.trimester ? `Week ${user.pregnancyWeek}${(user as any).weekDay ? ` · Day ${(user as any).weekDay}` : ''} — You're doing great! 👶` : 'Welcome!'}
+            {user.trimester ? `Week ${user.pregnancyWeek}${(user as any).weekDay ? ` · Day ${(user as any).weekDay}` : ''} You're doing great!` : 'Welcome!'}
           </h1>
           <p className="text-gray-600">Your personalized pregnancy nutrition dashboard</p>
         </div>
@@ -96,8 +96,8 @@ export default function Dashboard() {
                 {hydrationCups < recommendedHydration
                   ? `Aim for ${recommendedHydration - hydrationCups} more cups to reach recommended (${recommendedHydration})` 
                   : hydrationCups < goodHydration
-                    ? `Good — ${goodHydration - hydrationCups} more cups to reach ${goodHydration}`
-                    : 'Excellent — you reached the good target! 🎉'}
+                    ? `Good, ${goodHydration - hydrationCups} more cups to reach ${goodHydration}`
+                    : 'Excellent, you reached the good target! 🎉'}
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-3">
