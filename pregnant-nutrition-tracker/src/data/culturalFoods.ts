@@ -96,12 +96,30 @@ export const culturalFoods: CulturalFood[] = [
       },
       {
         name: 'Coconut in Cooking',
+<<<<<<< Updated upstream
         description: 'Used widely (milk, oil) in many islands and mainland cuisines—nutritious but not the only ingredient',
         nutrients: ['Healthy Fats', 'Fiber'],
         safeDuringPregnancy: true,
         budgetFriendly: true,
         notes: 'Coconut is one ingredient among many; don\'t rely on a single food to represent a whole culture.',
         preparation: 'Use coconut milk in curries, soups, or use fresh coconut in moderation'
+=======
+<<<<<<< HEAD
+        description: 'Coconut milk and fresh coconut used in many dishes, providing healthy fats',
+        nutrients: ['Healthy Fats', 'Fiber'],
+        safeDuringPregnancy: true,
+        budgetFriendly: true,
+        notes: 'Use in moderation as part of a balanced diet',
+        preparation: 'Use coconut milk in curries, soups, or use fresh coconut in moderation because of its high fat content'
+=======
+        description: 'Used widely (milk, oil) in many islands and mainland cuisines—nutritious but not the only ingredient',
+        nutrients: ['Healthy Fats', 'Fiber'],
+        safeDuringPregnancy: true,
+        budgetFriendly: true,
+        notes: 'Coconut is one ingredient among many; don\'t rely on a single food to represent a whole culture.',
+        preparation: 'Use coconut milk in curries, soups, or use fresh coconut in moderation'
+>>>>>>> parent of f05af22 (Fixed cultrual foods text)
+>>>>>>> Stashed changes
       }
     ]
   },
