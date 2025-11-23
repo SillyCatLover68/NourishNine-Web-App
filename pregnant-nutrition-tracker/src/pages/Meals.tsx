@@ -172,7 +172,6 @@ export default function Meals() {
           <h2 className="text-lg font-semibold mb-2">Today's Intake</h2>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className={`px-3 py-2 rounded text-white ${intakeColor}`}>{intakeLabel}</div>
               <div className="text-sm text-gray-600">{mealsCount} meal(s), {snacksCount} snack(s) logged today</div>
             </div>
             <div>

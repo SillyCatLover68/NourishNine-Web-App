@@ -93,7 +93,12 @@ export default function Profile() {
       <div className="container mx-auto px-4 max-w-3xl">
         <div className="bg-white p-6 rounded shadow mb-6">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold mb-2">Profile</h1>
+            <div>
+              <h1 className="text-2xl font-bold mb-2">Profile</h1>
+              <div className="text-sm text-gray-600">
+                Account: { (isFirebaseConfigured && auth && auth.currentUser && auth.currentUser.email) ? `${auth.currentUser.email} ${auth.currentUser.providerData && auth.currentUser.providerData[0] && auth.currentUser.providerData[0].providerId && auth.currentUser.providerData[0].providerId.includes('google.com') ? '(Google)' : ''}` : ((user as any).email || 'Local') }
+              </div>
+            </div>
             <div className="flex gap-2">
               {isFirebaseConfigured && auth && auth.currentUser && (
                 <button
@@ -169,7 +174,11 @@ export default function Profile() {
             </div>
             <div>
               <p className="text-sm text-gray-600">BMI</p>
-              <div className="font-medium">{bmi ?? user.bmi ?? '—'}</div>
+              {editMode ? (
+                <input type="number" step="0.1" value={(user.bmi ?? bmi) || ''} onChange={(e) => setUser({ ...user, bmi: e.target.value ? parseFloat(e.target.value) : undefined })} className="w-full px-2 py-1 border rounded" />
+              ) : (
+                <div className="font-medium">{(user.bmi ?? bmi) ?? '—'}</div>
+              )}
               <div className="text-sm text-gray-700">Estimated daily calories: <strong>{recommendedCalories}</strong></div>
             </div>
             <div>

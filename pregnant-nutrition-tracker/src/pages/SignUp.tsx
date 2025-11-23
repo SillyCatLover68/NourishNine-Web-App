@@ -118,58 +118,7 @@ export default function SignUp() {
             </div>
           </div>
 
-          {mode === 'signup' && (
-            <div className="mb-6">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-semibold mb-2">Email</label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-4 py-2 border rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold mb-2">Password</label>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-4 py-2 border rounded-lg"
-                  />
-                </div>
-              </div>
-              {authError && <p className="text-sm text-red-600 mt-2">{authError}</p>}
-              <div className="mt-4 flex items-center gap-2">
-                <button
-                  onClick={async () => {
-                    setAuthError('');
-                    if (isFirebaseConfigured && auth) {
-                      try {
-                        setLoading(true);
-                        const provider = new GoogleAuthProvider();
-                        const cred = await signInWithPopup(auth, provider);
-                        // persist any collected userData locally
-                        const sanitizeNumeric = (n: any) => (typeof n === 'number' && n > 0 ? n : undefined);
-                        const sanitizedUser = { ...userData, weight: sanitizeNumeric(userData.weight), height: sanitizeNumeric(userData.height) };
-                        localStorage.setItem('userData', JSON.stringify(sanitizedUser));
-                        navigate('/dashboard');
-                      } catch (e: any) {
-                        setAuthError(e?.message || 'Google sign-in failed');
-                      } finally { setLoading(false); }
-                    } else {
-                      setAuthError('Firebase not configured.');
-                    }
-                  }}
-                  disabled={loading}
-                  className="px-4 py-2 border rounded-lg bg-white text-gray-700 hover:bg-gray-50"
-                >
-                  Sign up with Google
-                </button>
-              </div>
-            </div>
-          )}
+          { /* Signup credentials are collected at the final step after the survey. */ }
 
           {mode === 'login' && (
             <div className="space-y-4">
@@ -470,6 +419,47 @@ export default function SignUp() {
                       {mood}
                     </button>
                   ))}
+                </div>
+              </div>
+              {/* Credentials section: ask for email/password or Google sign-up last */}
+              <div className="pt-4 border-t">
+                <h3 className="text-lg font-semibold mb-2">Create account</h3>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-semibold mb-2">Email</label>
+                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-4 py-2 border rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="block font-semibold mb-2">Password</label>
+                    <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-2 border rounded-lg" />
+                  </div>
+                </div>
+                {authError && <p className="text-sm text-red-600 mt-2">{authError}</p>}
+                <div className="mt-4 flex items-center gap-2">
+                  <button
+                    onClick={async () => {
+                      setAuthError('');
+                      if (isFirebaseConfigured && auth) {
+                        try {
+                          setLoading(true);
+                          const provider = new GoogleAuthProvider();
+                          const cred = await signInWithPopup(auth, provider);
+                          const sanitizeNumeric = (n: any) => (typeof n === 'number' && n > 0 ? n : undefined);
+                          const sanitizedUser = { ...userData, weight: sanitizeNumeric(userData.weight), height: sanitizeNumeric(userData.height) };
+                          localStorage.setItem('userData', JSON.stringify(sanitizedUser));
+                          navigate('/dashboard');
+                        } catch (e: any) {
+                          setAuthError(e?.message || 'Google sign-in failed');
+                        } finally { setLoading(false); }
+                      } else {
+                        setAuthError('Firebase not configured.');
+                      }
+                    }}
+                    disabled={loading}
+                    className="px-4 py-2 border rounded-lg bg-white text-gray-700 hover:bg-gray-50"
+                  >
+                    Sign up with Google
+                  </button>
                 </div>
               </div>
             </div>
