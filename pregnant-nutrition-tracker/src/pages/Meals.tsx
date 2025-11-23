@@ -17,35 +17,31 @@ export default function Meals() {
   const [newFoodName, setNewFoodName] = useState('');
   const [newMealType, setNewMealType] = useState('Breakfast');
   const [newNotes, setNewNotes] = useState('');
-  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
+  const [newCalories, setNewCalories] = useState<string>('');
+  const [newNutrientsRaw, setNewNutrientsRaw] = useState<string>(''); // format: "Protein:10, Iron:2"
 
   const handleLogFood = async () => {
     const name = newFoodName.trim();
     if (!name) return;
 
-    // First, attempt server-side nutrient lookup so the saved entry includes nutrientAmounts
+    // Parse manual nutrient input (format: "Protein:10, Iron:2")
     let nutrientAmounts: Record<string, number> | undefined = undefined;
-    try {
-      const token = await getCurrentIdToken();
-      const resp = await fetch('/api/nutrients', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ name })
-      });
-      if (resp.ok) {
-        const j = await resp.json();
-        if (j && j.nutrientAmounts && typeof j.nutrientAmounts === 'object') {
-          nutrientAmounts = j.nutrientAmounts as Record<string, number>;
-        }
+    if (newNutrientsRaw.trim()) {
+      try {
+        nutrientAmounts = {};
+        newNutrientsRaw.split(',').forEach(part => {
+          const [k, v] = part.split(':').map(s => s.trim());
+          const num = Number(v);
+          if (k && !isNaN(num)) nutrientAmounts![k] = num;
+        });
+      } catch (e) {
+        nutrientAmounts = undefined;
       }
-    } catch (e) {
-      // server not available — we'll log without nutrientAmounts
     }
 
     const entry: any = { id: Date.now(), name, mealType: newMealType, notes: newNotes.trim() || undefined, time: new Date().toISOString() };
-    if (nutrientAmounts) {
-      entry.nutrientAmounts = nutrientAmounts;
-    }
+    if (nutrientAmounts) entry.nutrientAmounts = nutrientAmounts;
+    if (newCalories && !isNaN(Number(newCalories))) entry.calories = Number(newCalories);
 
     const updated = [entry, ...foodLog];
     setFoodLog(updated);
@@ -53,7 +49,7 @@ export default function Meals() {
 
     if (entry.nutrientAmounts) addProgress(entry.nutrientAmounts as Record<string, number>);
 
-    setNewFoodName(''); setNewNotes('');
+    setNewFoodName(''); setNewNotes(''); setNewCalories(''); setNewNutrientsRaw('');
     // Try to persist the food log to server (will write to Firestore if server has Admin SDK and token is valid)
     try {
       const token = await getCurrentIdToken();
@@ -157,47 +153,20 @@ export default function Meals() {
               <option>Snack</option>
             </select>
             <div className="flex items-center gap-2">
-              <button
-                onClick={async () => {
-                  const name = newFoodName.trim();
-                  if (!name) return;
-                  // try nutrient lookup and suggestions concurrently
-                  try {
-                    const token = await getCurrentIdToken();
-                    const [nResp, sResp] = await Promise.all([
-                      fetch('/api/nutrients', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ name }) }),
-                      fetch('/api/suggest', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ name }) })
-                    ]);
-
-                    let nJson = null;
-                    if (nResp.ok) nJson = await nResp.json();
-                    let sJson = null;
-                    if (sResp.ok) sJson = await sResp.json();
-
-                    // attach nutrientAmounts to a preview object for the UI (not stored yet)
-                    const preview: any = { name };
-                    if (nJson && nJson.nutrientAmounts) preview.nutrientAmounts = nJson.nutrientAmounts;
-                    setMeals(prev => prev); // keep current suggestions unchanged
-                    // show the preview by prepping a temporary entry at top of foodLog-like UI
-                    // We will reuse the existing Log Food button to persist it.
-                    // Put preview into newNotes temporarily for display (quick approach)
-                    // Avoid saving an empty object string '{}': show a friendly message when lookup failed
-                    if (preview.nutrientAmounts) {
-                      setNewNotes(JSON.stringify(preview.nutrientAmounts));
-                    } else {
-                      setNewNotes('Nutrient data unavailable');
-                    }
-                    // also place suggestions into state for display under results
-                    setAiSuggestions((sJson && sJson.suggestions) || []);
-                    // Focus user to press Log Food to persist or see suggestions below
-                  } catch (e) {
-                    // network or server error
-                  }
-                }}
-                className="px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700"
-              >
-                Lookup & Suggest
-              </button>
+              <input
+                type="text"
+                placeholder="Nutrients (Protein:10, Iron:2)"
+                value={newNutrientsRaw}
+                onChange={e => setNewNutrientsRaw(e.target.value)}
+                className="px-3 py-2 border rounded-lg"
+              />
+              <input
+                type="number"
+                placeholder="Calories"
+                value={newCalories}
+                onChange={e => setNewCalories(e.target.value)}
+                className="w-24 px-3 py-2 border rounded-lg"
+              />
               <button
                 onClick={() => { (document.activeElement as HTMLElement)?.blur(); handleLogFood(); }}
                 className="px-4 py-2 border rounded-lg hover:bg-gray-50"
@@ -206,30 +175,7 @@ export default function Meals() {
               </button>
             </div>
           </div>
-          {/* Display AI suggestions if present */}
-          <div className="mt-4">
-            <h3 className="font-semibold mb-2">AI Suggestions</h3>
-            <div className="flex gap-2 flex-wrap">
-              {aiSuggestions.map((s, i) => (
-                <button key={i} onClick={async () => {
-                  try {
-                    const token = await getCurrentIdToken();
-                    const nResp = await fetch('/api/nutrients', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ name: s }) });
-                    let nJson = null;
-                    if (nResp.ok) nJson = await nResp.json();
-                    const entry: any = { id: Date.now(), name: s, mealType: newMealType, notes: undefined, time: new Date().toISOString() };
-                    if (nJson && nJson.nutrientAmounts) entry.nutrientAmounts = nJson.nutrientAmounts;
-                    const updated = [entry, ...foodLog];
-                    setFoodLog(updated);
-                    localStorage.setItem('foodLog', JSON.stringify(updated));
-                    if (entry.nutrientAmounts) addProgress(entry.nutrientAmounts);
-                  } catch (e) {
-                    // ignore
-                  }
-                }} className="px-3 py-1 text-sm bg-pink-100 text-pink-700 rounded">{s}</button>
-              ))}
-            </div>
-          </div>
+          {/* Manual nutrient & calorie entry is used when logging foods now */}
         </div>
 
         {/* Today's Intake */}
@@ -256,6 +202,8 @@ export default function Meals() {
                   <div>
                     <div className="font-medium">{entry.name} <span className="text-xs text-gray-500">({entry.mealType})</span></div>
                     {entry.notes && <div className="text-sm text-gray-600">{entry.notes}</div>}
+                    {entry.calories !== undefined && <div className="text-sm text-gray-700">Calories: {entry.calories}</div>}
+                    {entry.nutrientAmounts && <div className="text-sm text-gray-700">Nutrients: {Object.entries(entry.nutrientAmounts).map(([k,v]) => `${k}:${v}`).join(', ')}</div>}
                     <div className="text-xs text-gray-400">{new Date(entry.time).toLocaleString()}</div>
                   </div>
                   <div>
@@ -330,11 +278,16 @@ export default function Meals() {
                 </div>
               </div>
 
+              {meal.calories !== undefined && (
+                <div className="text-sm text-gray-700 mt-2">Calories: {meal.calories}</div>
+              )}
+
               <div className="mt-4 flex gap-2">
                 <button
                   onClick={() => {
                       const entry: any = { id: Date.now(), name: meal.name, mealType: 'Meal', notes: meal.ingredients.join(', '), time: new Date().toISOString() };
                       if ((meal as any).nutrientAmounts) entry.nutrientAmounts = (meal as any).nutrientAmounts;
+                      if ((meal as any).calories !== undefined) entry.calories = (meal as any).calories;
                       const updated = [entry, ...foodLog];
                       setFoodLog(updated);
                       localStorage.setItem('foodLog', JSON.stringify(updated));

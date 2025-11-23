@@ -56,6 +56,21 @@ export default function Profile() {
     return undefined;
   }, [user]);
 
+  const recommendedCalories = useMemo(() => {
+    // Simple heuristic: base 2000 kcal, adjust by BMI and trimester
+    const bmiNum = bmi ? Number(bmi) : (user.bmi ? Number(user.bmi) : undefined);
+    let base = 2000;
+    if (bmiNum !== undefined) {
+      if (bmiNum < 18.5) base += 200; // underweight -> more calories
+      else if (bmiNum >= 25) base -= 150; // overweight -> slightly fewer
+    }
+    // Pregnancy trimester adjustments (rough)
+    const tri = user.trimester;
+    if (tri === 2) base += 340;
+    if (tri === 3) base += 450;
+    return Math.round(base);
+  }, [bmi, user.trimester, user.bmi]);
+
   // compute recent stats (today)
   const today = new Date().toLocaleDateString();
   const todays = entries.filter(e => new Date(e.time).toLocaleDateString() === today);
@@ -141,6 +156,7 @@ export default function Profile() {
             <div>
               <p className="text-sm text-gray-600">BMI</p>
               <div className="font-medium">{bmi ?? user.bmi ?? '—'}</div>
+              <div className="text-sm text-gray-700">Estimated daily calories: <strong>{recommendedCalories}</strong></div>
             </div>
             <div>
               <p className="text-sm text-gray-600">Hydration Today</p>

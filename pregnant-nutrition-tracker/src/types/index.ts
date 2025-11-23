@@ -45,6 +45,7 @@ export interface MealSuggestion {
   whyGood: string;
   cost: string;
   nutrients: string[];
+  calories?: number;
   cookingMethod: 'microwave' | 'stovetop' | 'no-cook' | 'any';
   nutrientAmounts?: Record<string, number>;
 }

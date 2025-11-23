@@ -10,6 +10,7 @@ export const mealSuggestions: MealSuggestion[] = [
     cost: '$2.50',
     nutrients: ['Iron', 'Protein', 'Vitamin C'],
     nutrientAmounts: { Iron: 6, Protein: 10, 'Vitamin C': 30 },
+    calories: 420,
     cookingMethod: 'microwave'
   },
   {
@@ -21,6 +22,7 @@ export const mealSuggestions: MealSuggestion[] = [
     cost: '$4',
     nutrients: ['Calcium', 'Protein', 'Vitamin C'],
     nutrientAmounts: { Calcium: 200, Protein: 15, 'Vitamin C': 10 },
+    calories: 300,
     cookingMethod: 'no-cook'
   },
   {
@@ -32,6 +34,7 @@ export const mealSuggestions: MealSuggestion[] = [
     cost: '$1.83',
     nutrients: ['Protein', 'Folate', 'Iron', 'Choline'],
     nutrientAmounts: { Protein: 12, Folate: 80, Iron: 2, Choline: 150 },
+    calories: 260,
     cookingMethod: 'stovetop'
   },
   {
@@ -43,6 +46,7 @@ export const mealSuggestions: MealSuggestion[] = [
     cost: '$3',
     nutrients: ['Iron', 'Folate', 'Protein'],
     nutrientAmounts: { Iron: 5, Folate: 150, Protein: 12 },
+    calories: 220,
     cookingMethod: 'stovetop'
   },
   {
@@ -54,6 +58,7 @@ export const mealSuggestions: MealSuggestion[] = [
     cost: '$4.50',
     nutrients: ['DHA', 'Protein', 'Vitamin D'],
     nutrientAmounts: { DHA: 250, Protein: 20, 'Vitamin D': 200 },
+    calories: 360,
     cookingMethod: 'no-cook'
   },
   {
@@ -65,6 +70,7 @@ export const mealSuggestions: MealSuggestion[] = [
     cost: '$1.80',
     nutrients: ['Iron', 'Fiber', 'DHA'],
     nutrientAmounts: { Iron: 4, Fiber: 6, DHA: 100 },
+    calories: 320,
     cookingMethod: 'microwave'
   },
   {
@@ -76,6 +82,7 @@ export const mealSuggestions: MealSuggestion[] = [
     cost: '$2',
     nutrients: ['Protein', 'Calcium', 'Iron'],
     nutrientAmounts: { Protein: 14, Calcium: 200, Iron: 3 },
+    calories: 480,
     cookingMethod: 'microwave'
   }
 ];
