@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Landing from "./pages/Landing";
 import SignUp from "./pages/SignUp";
+import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import QuickQuiz from "./pages/QuickQuiz";
 import CravingResult from "./pages/CravingResult";
@@ -21,6 +22,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/signup" element={<SignUp />} />
+        <Route path="/login" element={<Login />} />
         <Route path="/quick-quiz" element={<QuickQuiz />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/craving-result" element={<CravingResult />} />

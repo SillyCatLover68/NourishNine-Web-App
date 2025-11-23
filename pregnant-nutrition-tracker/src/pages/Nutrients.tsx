@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { CheckCircle, Info } from 'lucide-react';
 import { nutrients } from '../data/nutrients';
-import { getProgress } from '../lib/nutrientProgress';
+import { getProgress, setProgress } from '../lib/nutrientProgress';
 
 export default function Nutrients() {
   const [selectedNutrient, setSelectedNutrient] = useState<string | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [editedValues, setEditedValues] = useState<Record<string, number>>({});
 
   const nutrient = nutrients.find(n => n.name === selectedNutrient);
   const [progressMap, setProgressMap] = useState<Record<string, number>>({});
@@ -17,6 +19,25 @@ export default function Nutrients() {
     window.addEventListener('nutrientsUpdated', handler);
     return () => window.removeEventListener('nutrientsUpdated', handler);
   }, []);
+
+  const handleInputChange = (name: string, value: string) => {
+    const n = parseFloat(value);
+    setEditedValues(prev => ({ ...prev, [name]: isNaN(n) ? 0 : n }));
+  };
+
+  const handleSave = () => {
+    const current = getProgress();
+    const merged = { ...current };
+    Object.keys(editedValues).forEach(k => { merged[k] = editedValues[k]; });
+    setProgress(merged);
+  };
+
+  const handleReset = () => {
+    // reset progress for all tracked nutrients
+    const empty: Record<string, number> = {};
+    setProgress(empty);
+    setEditedValues({});
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -53,7 +74,11 @@ export default function Nutrients() {
                       </div>
                     </div>
                     <span className="text-sm font-medium">
-                      {currentVal} / {nutrient.target} {nutrient.unit}
+                      {editMode ? (
+                        <input type="number" min={0} className="w-24 px-2 py-1 border rounded" defaultValue={currentVal} onChange={(e) => handleInputChange(nutrient.name, e.target.value)} />
+                      ) : (
+                        `${currentVal} / ${nutrient.target} ${nutrient.unit}`
+                      )}
                     </span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-3 mb-2">
@@ -126,6 +151,16 @@ export default function Nutrients() {
               </div>
             )}
           </div>
+        </div>
+
+        <div className="mt-6 flex items-center justify-center gap-4">
+          <button onClick={() => setEditMode(!editMode)} className="px-4 py-2 bg-pink-100 text-pink-700 rounded">{editMode ? 'Exit Edit' : 'Edit Amounts'}</button>
+          {editMode && (
+            <>
+              <button onClick={handleSave} className="px-4 py-2 bg-green-600 text-white rounded">Save</button>
+              <button onClick={handleReset} className="px-4 py-2 bg-red-100 text-red-700 rounded">Reset All</button>
+            </>
+          )}
         </div>
 
         <div className="mt-8 text-center">

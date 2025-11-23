@@ -1,9 +1,12 @@
-import { Link, useLocation } from "react-router-dom";
-import { Home, Utensils, Shield, BookOpen, Heart, LogIn, Stethoscope, User } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Home, Utensils, Shield, BookOpen, Heart, LogIn, Stethoscope, User, LogOut } from "lucide-react";
+import { auth, isFirebaseConfigured } from '../lib/firebase';
+import { signOut } from 'firebase/auth';
 
 export default function Navbar() {
   const location = useLocation();
   const isLoggedIn = localStorage.getItem("userData");
+  const navigate = useNavigate();
 
   return (
     <nav className="bg-white shadow-md">
@@ -44,6 +47,23 @@ export default function Navbar() {
                   <User className="w-4 h-4" />
                   <span className="hidden sm:inline">Profile</span>
                 </Link>
+                <button
+                  onClick={async () => {
+                    // Sign out: if Firebase configured, sign out there; otherwise clear local profile
+                    try {
+                      if (isFirebaseConfigured && auth) {
+                        await signOut(auth);
+                      }
+                    } catch (e) {}
+                    localStorage.removeItem('userData');
+                    window.dispatchEvent(new Event('userUpdated'));
+                    navigate('/');
+                  }}
+                  className="flex items-center gap-1 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-100"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span className="hidden sm:inline">Sign Out</span>
+                </button>
                 <Link to="/conditions" className={`flex items-center gap-1 px-3 py-2 rounded-lg transition-colors ${location.pathname === "/conditions" ? "bg-pink-100 text-pink-600" : "text-gray-600 hover:bg-gray-100"}`}>
                   <Stethoscope className="w-4 h-4" />
                   <span className="hidden sm:inline">Conditions</span>

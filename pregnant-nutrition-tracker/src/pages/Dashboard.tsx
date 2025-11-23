@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { Droplet, CheckCircle, Circle, Search, Utensils, BookOpen, Heart, Stethoscope, Shield, Globe } from 'lucide-react';
 import type { User } from '../types';
 import { nutrients } from '../data/nutrients';
+import { trimesterTips } from '../data/trimesterTips';
+import { getProgress } from '../lib/nutrientProgress';
 import { getMealSuggestions } from '../data/meals';
 
 export default function Dashboard() {
@@ -19,6 +21,12 @@ export default function Dashboard() {
         setMeals(getMealSuggestions({ cookingMethod: userData.cookingAccess }));
       }
     }
+    const handler = () => {
+      const s = localStorage.getItem('userData');
+      if (s) setUser(JSON.parse(s));
+    };
+    window.addEventListener('userUpdated', handler);
+    return () => window.removeEventListener('userUpdated', handler);
   }, []);
 
   const handleCravingSearch = () => {
@@ -27,9 +35,31 @@ export default function Dashboard() {
     }
   };
 
-  const topNutrients = nutrients.slice(0, 5);
+  // Determine trimester-aware top nutrients
+  const determineTrimester = (u: Partial<any>) => {
+    if (u.trimester) return u.trimester;
+    if (typeof u.pregnancyWeek === 'number') {
+      const w = u.pregnancyWeek;
+      return w <= 13 ? 1 : w <= 27 ? 2 : 3;
+    }
+    return null;
+  };
+
+  const userTrim = determineTrimester(user);
+  let topNutrients = nutrients.slice(0, 5);
+  if (userTrim) {
+    const tip = trimesterTips.find(t => t.trimester === userTrim);
+    if (tip && tip.keyNutrients && tip.keyNutrients.length > 0) {
+      // Map key nutrient names to nutrient objects when possible
+      const mapped = tip.keyNutrients.map(kn => nutrients.find(n => n.name === kn || n.name.includes(kn) || kn.includes(n.name))).filter(Boolean) as typeof nutrients;
+      if (mapped.length > 0) topNutrients = mapped.slice(0, 5);
+    }
+  }
+
+  const progressMap = getProgress();
   const hydrationCups = user.hydrationCups || 0;
-  const hydrationGoal = 8;
+  const recommendedHydration = 8;
+  const goodHydration = 12;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -37,7 +67,7 @@ export default function Dashboard() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">
-            {user.trimester ? `Week ${user.pregnancyWeek} — You're doing great! 👶` : 'Welcome!'}
+            {user.trimester ? `Week ${user.pregnancyWeek}${(user as any).weekDay ? ` · Day ${(user as any).weekDay}` : ''} — You're doing great! 👶` : 'Welcome!'}
           </h1>
           <p className="text-gray-600">Your personalized pregnancy nutrition dashboard</p>
         </div>
@@ -50,53 +80,77 @@ export default function Dashboard() {
           </div>
           <div className="mb-2">
             <div className="flex justify-between mb-1">
-              <span className="text-sm font-medium">Today: {hydrationCups} / {hydrationGoal} cups</span>
+              <span className="text-sm font-medium">Today: {hydrationCups} cups</span>
               <span className="text-sm text-gray-500">
-                {hydrationCups < hydrationGoal 
-                  ? `Aim for ${hydrationGoal - hydrationCups} more cups today!` 
-                  : 'Great job! 🎉'}
+                {hydrationCups < recommendedHydration
+                  ? `Aim for ${recommendedHydration - hydrationCups} more cups to reach recommended (${recommendedHydration})` 
+                  : hydrationCups < goodHydration
+                    ? `Good — ${goodHydration - hydrationCups} more cups to reach ${goodHydration}`
+                    : 'Excellent — you reached the good target! 🎉'}
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-3">
               <div
-                className="bg-blue-500 h-3 rounded-full transition-all"
-                style={{ width: `${Math.min((hydrationCups / hydrationGoal) * 100, 100)}%` }}
+                className={`h-3 rounded-full transition-all ${hydrationCups >= goodHydration ? 'bg-green-500' : hydrationCups >= recommendedHydration ? 'bg-yellow-500' : 'bg-blue-500'}`}
+                style={{ width: `${Math.min((hydrationCups / goodHydration) * 100, 100)}%` }}
               />
             </div>
+            <div className="flex items-center justify-between text-xs text-gray-500 mt-1">
+              <span>Recommended: {recommendedHydration} cups</span>
+              <span>Good: {goodHydration} cups</span>
+            </div>
           </div>
-          <button
-            onClick={() => {
-              const current = user.hydrationCups || 0;
-              const newCups = Math.min(current + 1, hydrationGoal);
-              if (newCups === current) return; // already at or above goal
-              const updated = { ...user, hydrationCups: newCups };
-              setUser(updated);
-              localStorage.setItem('userData', JSON.stringify(updated));
-            }}
-            disabled={(user.hydrationCups || 0) >= hydrationGoal}
-            className={`text-sm font-medium ${((user.hydrationCups || 0) >= hydrationGoal) ? 'text-gray-400 cursor-not-allowed' : 'text-blue-600 hover:text-blue-700'}`}
-          >
-            + Add 1 cup
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                const current = user.hydrationCups || 0;
+                const newCups = Math.min(current + 1, goodHydration);
+                const updated = { ...user, hydrationCups: newCups };
+                setUser(updated);
+                localStorage.setItem('userData', JSON.stringify(updated));
+                window.dispatchEvent(new Event('userUpdated'));
+              }}
+              disabled={(user.hydrationCups || 0) >= goodHydration}
+              className={`text-sm font-medium ${((user.hydrationCups || 0) >= goodHydration) ? 'text-gray-400 cursor-not-allowed' : 'text-blue-600 hover:text-blue-700'}`}
+            >
+              + Add 1 cup
+            </button>
+            <button
+              onClick={() => {
+                const updated = { ...user, hydrationCups: 0 };
+                setUser(updated);
+                localStorage.setItem('userData', JSON.stringify(updated));
+                window.dispatchEvent(new Event('userUpdated'));
+              }}
+              className="text-sm font-medium text-red-600 hover:text-red-700"
+            >
+              Reset
+            </button>
+          </div>
         </div>
 
         {/* Top 5 Nutrients Checklist */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h2 className="text-xl font-semibold mb-4">Top 5 Nutrients for Your Trimester</h2>
           <div className="space-y-3">
-            {topNutrients.map((nutrient) => (
-              <div key={nutrient.name} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  {Math.random() > 0.5 ? (
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                  ) : (
-                    <Circle className="w-5 h-5 text-gray-400" />
-                  )}
-                  <span className="font-medium">{nutrient.name}</span>
+            {topNutrients.map((nutrient) => {
+              const current = Math.round((progressMap[nutrient.name] || nutrient.current) as number || 0);
+              const target = nutrient.target || 0;
+              const isComplete = target > 0 ? current >= target : false;
+              return (
+                <div key={nutrient.name} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    {isComplete ? (
+                      <CheckCircle className="w-5 h-5 text-green-500" />
+                    ) : (
+                      <Circle className="w-5 h-5 text-gray-400" />
+                    )}
+                    <span className="font-medium">{nutrient.name}</span>
+                  </div>
+                  <span className="text-sm text-gray-600">{nutrient.rda}</span>
                 </div>
-                <span className="text-sm text-gray-600">{nutrient.rda}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <Link
             to="/nutrients"

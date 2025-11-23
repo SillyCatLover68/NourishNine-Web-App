@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { auth, isFirebaseConfigured } from '../lib/firebase';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, GoogleAuthProvider, signInWithPopup, sendPasswordResetEmail } from 'firebase/auth';
 import { ArrowRight } from 'lucide-react';
 import type { User } from '../types';
 
@@ -148,7 +148,7 @@ export default function SignUp() {
             <div className="space-y-4">
               <p className="text-sm text-gray-600">Sign in with your email and password. If you don't have an account yet, switch to Sign Up.</p>
               {!isFirebaseConfigured && (
-                <p className="text-sm text-yellow-700">Firebase is not configured. The app will use a local fallback. To enable real auth, set the Vite `VITE_FIREBASE_*` env vars.</p>
+                <p className="text-sm text-yellow-700">Firebase is not configured. The app will use a local fallback. To enable real auth, add the Vite `VITE_FIREBASE_*` env vars to a `.env` file (see `server/FIREBASE_SETUP.md` for step-by-step instructions).</p>
               )}
               <div>
                 <label className="block font-semibold mb-2">Email</label>
@@ -170,43 +170,67 @@ export default function SignUp() {
               </div>
               {authError && <p className="text-sm text-red-600">{authError}</p>}
               <div className="flex justify-end">
-                <button
-                  onClick={async () => {
-                    setAuthError('');
-                    if (isFirebaseConfigured && auth) {
-                      try {
-                        setLoading(true);
-                        await signInWithEmailAndPassword(auth, email, password);
-                        navigate('/dashboard');
-                      } catch (e: any) {
-                        setAuthError(e?.message || 'Sign in failed');
-                      } finally { setLoading(false); }
-                    } else {
-                      // local fallback: check localStorage existence and sanitize numeric fields
-                      const saved = localStorage.getItem('userData');
-                      if (saved) {
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => {
+                      setAuthError('');
+                      if (isFirebaseConfigured && auth) {
                         try {
-                          const parsed = JSON.parse(saved);
-                          const sanitizeNumeric = (n: any) => (typeof n === 'number' && n > 0 ? n : undefined);
-                          parsed.weight = sanitizeNumeric(parsed.weight);
-                          parsed.height = sanitizeNumeric(parsed.height);
-                          localStorage.setItem('userData', JSON.stringify(parsed));
-                        } catch (e) {
-                          // if parse fails, just proceed to dashboard
-                        }
-                        navigate('/dashboard');
+                          setLoading(true);
+                          const provider = new GoogleAuthProvider();
+                          await signInWithPopup(auth, provider);
+                          navigate('/dashboard');
+                        } catch (e: any) {
+                          setAuthError(e?.message || 'Google sign-in failed');
+                        } finally { setLoading(false); }
                       } else {
-                        setAuthError('No local account found. Please sign up.');
-                        setMode('signup');
+                        setAuthError('Firebase not configured.');
                       }
-                    }
-                  }}
-                  disabled={loading}
-                  className="px-6 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 flex items-center gap-2"
-                >
-                  {loading ? 'Signing in...' : 'Log In'}
-                  <span className="sr-only">Log in and go to dashboard</span>
-                </button>
+                    }}
+                    disabled={loading}
+                    className="px-4 py-2 border rounded-lg bg-white text-gray-700 hover:bg-gray-50"
+                  >
+                    {loading ? 'Signing in…' : 'Sign in with Google'}
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      setAuthError('');
+                      if (isFirebaseConfigured && auth) {
+                        try {
+                          setLoading(true);
+                          await signInWithEmailAndPassword(auth, email, password);
+                          navigate('/dashboard');
+                        } catch (e: any) {
+                          setAuthError(e?.message || 'Sign in failed');
+                        } finally { setLoading(false); }
+                      } else {
+                        // local fallback: check localStorage existence and sanitize numeric fields
+                        const saved = localStorage.getItem('userData');
+                        if (saved) {
+                          try {
+                            const parsed = JSON.parse(saved);
+                            const sanitizeNumeric = (n: any) => (typeof n === 'number' && n > 0 ? n : undefined);
+                            parsed.weight = sanitizeNumeric(parsed.weight);
+                            parsed.height = sanitizeNumeric(parsed.height);
+                            localStorage.setItem('userData', JSON.stringify(parsed));
+                          } catch (e) {
+                            // if parse fails, just proceed to dashboard
+                          }
+                          navigate('/dashboard');
+                        } else {
+                          setAuthError('No local account found. Please sign up.');
+                          setMode('signup');
+                        }
+                      }
+                    }}
+                    disabled={loading}
+                    className="px-6 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 flex items-center gap-2"
+                  >
+                    {loading ? 'Signing in...' : 'Log In'}
+                    <span className="sr-only">Log in and go to dashboard</span>
+                  </button>
+                </div>
               </div>
             </div>
           )}

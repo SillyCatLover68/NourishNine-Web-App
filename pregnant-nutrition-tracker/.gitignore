@@ -5,6 +5,14 @@ dist/
 
 # Ignore local Firebase service account (create server/serviceAccountKey.json locally)
 server/serviceAccountKey.json
+# Ignore any service account backups
+server/serviceAccountKey.json.bak
+*.bak
+# Ignore any Firebase admin service account keys that might be placed at repo root
+*-firebase-adminsdk-*.json
+firebase-adminsdk-*.json
+# Specific accidental file (added by user) - do NOT commit
+/hackathon-project-f40d7-firebase-adminsdk-fbsvc-e95157c925.json
 # Logs
 logs
 *.log

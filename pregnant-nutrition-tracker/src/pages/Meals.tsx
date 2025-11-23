@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Clock, DollarSign, Utensils } from 'lucide-react';
 import { getMealSuggestions, mealSuggestions } from '../data/meals';
 import { addProgress, subtractProgress } from '../lib/nutrientProgress';
+import getCurrentIdToken from '../lib/firebaseAuth';
 import { nutrients as nutrientDefs } from '../data/nutrients';
 
 export default function Meals() {
@@ -25,9 +26,10 @@ export default function Meals() {
     // First, attempt server-side nutrient lookup so the saved entry includes nutrientAmounts
     let nutrientAmounts: Record<string, number> | undefined = undefined;
     try {
+      const token = await getCurrentIdToken();
       const resp = await fetch('/api/nutrients', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ name })
       });
       if (resp.ok) {
@@ -52,6 +54,17 @@ export default function Meals() {
     if (entry.nutrientAmounts) addProgress(entry.nutrientAmounts as Record<string, number>);
 
     setNewFoodName(''); setNewNotes('');
+    // Try to persist the food log to server (will write to Firestore if server has Admin SDK and token is valid)
+    try {
+      const token = await getCurrentIdToken();
+      await fetch('/api/foodlog', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify(entry)
+      });
+    } catch (e) {
+      // ignore - best-effort persistence
+    }
   };
 
   useEffect(() => {
@@ -150,9 +163,10 @@ export default function Meals() {
                   if (!name) return;
                   // try nutrient lookup and suggestions concurrently
                   try {
+                    const token = await getCurrentIdToken();
                     const [nResp, sResp] = await Promise.all([
-                      fetch('/api/nutrients', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) }),
-                      fetch('/api/suggest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) })
+                      fetch('/api/nutrients', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ name }) }),
+                      fetch('/api/suggest', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ name }) })
                     ]);
 
                     let nJson = null;
@@ -199,7 +213,8 @@ export default function Meals() {
               {aiSuggestions.map((s, i) => (
                 <button key={i} onClick={async () => {
                   try {
-                    const nResp = await fetch('/api/nutrients', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: s }) });
+                    const token = await getCurrentIdToken();
+                    const nResp = await fetch('/api/nutrients', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ name: s }) });
                     let nJson = null;
                     if (nResp.ok) nJson = await nResp.json();
                     const entry: any = { id: Date.now(), name: s, mealType: newMealType, notes: undefined, time: new Date().toISOString() };

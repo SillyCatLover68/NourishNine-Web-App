@@ -1,4 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { auth, isFirebaseConfigured } from '../lib/firebase';
+import getCurrentIdToken from '../lib/firebaseAuth';
+import { signOut } from 'firebase/auth';
 import type { User } from '../types';
 
 type LogEntry = { id: number; name: string; mealType: string; notes?: string; time: string };
@@ -22,14 +26,26 @@ function scoreIntake(entries: LogEntry[]) {
 }
 
 export default function Profile() {
+  const navigate = useNavigate();
   const [user, setUser] = useState<Partial<User>>({});
   const [entries, setEntries] = useState<LogEntry[]>([]);
+  const [editMode, setEditMode] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('userData');
     if (saved) setUser(JSON.parse(saved));
     const log = localStorage.getItem('foodLog');
     if (log) setEntries(JSON.parse(log));
+  }, []);
+
+  useEffect(() => {
+    const handler = () => {
+      const s = localStorage.getItem('userData');
+      if (s) setUser(JSON.parse(s));
+      else setUser({});
+    };
+    window.addEventListener('userUpdated', handler);
+    return () => window.removeEventListener('userUpdated', handler);
   }, []);
 
   const bmi = useMemo(() => {
@@ -52,15 +68,75 @@ export default function Profile() {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="container mx-auto px-4 max-w-3xl">
         <div className="bg-white p-6 rounded shadow mb-6">
-          <h1 className="text-2xl font-bold mb-2">Profile</h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold mb-2">Profile</h1>
+            <div className="flex gap-2">
+              {isFirebaseConfigured && auth && auth.currentUser && (
+                <button
+                  onClick={async () => {
+                    try {
+                      if (auth) await signOut(auth);
+                    } catch (e) {}
+                    localStorage.removeItem('userData');
+                    window.dispatchEvent(new Event('userUpdated'));
+                    navigate('/');
+                  }}
+                  className="text-sm px-3 py-1 bg-gray-100 rounded"
+                >
+                  Log Out
+                </button>
+              )}
+              <button
+                onClick={() => setEditMode(!editMode)}
+                className="text-sm px-3 py-1 bg-pink-100 text-pink-700 rounded"
+              >
+                {editMode ? 'Cancel' : 'Edit'}
+              </button>
+              <button
+                onClick={async () => {
+                  if (!confirm('Delete your local profile? This will remove stored profile data and (optionally) delete your server profile.')) return;
+                  const token = await (isFirebaseConfigured ? getCurrentIdToken() : null);
+                  try {
+                    if (token) await fetch('/api/profile', { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+                  } catch (e) {}
+                  localStorage.removeItem('userData');
+                  window.dispatchEvent(new Event('userUpdated'));
+                  try { if (isFirebaseConfigured && auth) await signOut(auth); } catch (e) {}
+                  navigate('/');
+                }}
+                className="text-sm px-3 py-1 bg-red-100 text-red-700 rounded"
+              >
+                Delete Profile
+              </button>
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-gray-600">Age</p>
-              <div className="font-medium">{user.age ?? '—'}</div>
+              {editMode ? (
+                <input type="number" value={user.age ?? ''} onChange={(e) => setUser({ ...user, age: e.target.value ? parseInt(e.target.value) : undefined })} className="w-full px-2 py-1 border rounded" />
+              ) : (
+                <div className="font-medium">{user.age ?? '—'}</div>
+              )}
             </div>
             <div>
               <p className="text-sm text-gray-600">Pregnancy Week</p>
-              <div className="font-medium">{user.pregnancyWeek ?? '—'}</div>
+              {editMode ? (
+                <div className="flex gap-2">
+                  <input type="number" min={1} max={42} value={user.pregnancyWeek ?? ''} onChange={(e) => setUser({ ...user, pregnancyWeek: e.target.value ? parseInt(e.target.value) : undefined })} className="w-24 px-2 py-1 border rounded" />
+                  <button onClick={() => {
+                    const currentWeek = typeof user.pregnancyWeek === 'number' ? user.pregnancyWeek : 1;
+                    const nextWeek = Math.min(currentWeek + 1, 42);
+                    const updated: Partial<User> = { ...user, pregnancyWeek: nextWeek };
+                    const week = nextWeek;
+                    const trimester = week <= 13 ? 1 : week <= 27 ? 2 : 3;
+                    updated.trimester = trimester;
+                    setUser(updated);
+                  }} className="px-2 py-1 bg-pink-100 text-pink-700 rounded">Advance</button>
+                </div>
+              ) : (
+                <div className="font-medium">{user.pregnancyWeek ?? '—'}</div>
+              )}
             </div>
             <div>
               <p className="text-sm text-gray-600">BMI</p>
@@ -68,7 +144,64 @@ export default function Profile() {
             </div>
             <div>
               <p className="text-sm text-gray-600">Hydration Today</p>
-              <div className="font-medium">{user.hydrationCups ?? 0} cups</div>
+              {editMode ? (
+                <div className="flex gap-2 items-center">
+                  <input type="number" min={0} value={user.hydrationCups ?? 0} onChange={(e) => setUser({ ...user, hydrationCups: e.target.value ? parseInt(e.target.value) : 0 })} className="w-24 px-2 py-1 border rounded" />
+                  <button onClick={() => setUser({ ...user, hydrationCups: 0 })} className="px-2 py-1 bg-gray-100 rounded">Reset</button>
+                </div>
+              ) : (
+                <div className="font-medium">{user.hydrationCups ?? 0} cups</div>
+              )}
+            </div>
+          </div>
+          {editMode && (
+            <div className="mt-4 flex gap-2">
+              <button onClick={async () => {
+                // Save locally and attempt server-side save
+                const updated = { ...user };
+                // ensure trimester based on week if present
+                if (updated.pregnancyWeek) updated.trimester = updated.pregnancyWeek <= 13 ? 1 : updated.pregnancyWeek <= 27 ? 2 : 3;
+                setUser(updated);
+                localStorage.setItem('userData', JSON.stringify(updated));
+                window.dispatchEvent(new Event('userUpdated'));
+                // try to persist to server if logged in
+                if (isFirebaseConfigured) {
+                  try {
+                    const token = await getCurrentIdToken();
+                    if (token) await fetch('/api/profile', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(updated) });
+                  } catch (e) {
+                    // ignore server errors
+                  }
+                }
+                setEditMode(false);
+              }} className="px-3 py-1 bg-pink-600 text-white rounded">Save</button>
+              <button onClick={() => { const s = localStorage.getItem('userData'); setUser(s ? JSON.parse(s) : {}); setEditMode(false); }} className="px-3 py-1 bg-gray-100 rounded">Cancel</button>
+            </div>
+          )}
+          <div className="mt-4">
+            <p className="text-sm text-gray-600">Day of Week</p>
+            <div className="flex items-center gap-3">
+              <div className="font-medium">{(user as any).weekDay ?? 1}</div>
+              <button onClick={() => {
+                // Advance day, wrap at 7 and advance week
+                const current = typeof (user as any).weekDay === 'number' ? (user as any).weekDay : 1;
+                let next = current + 1;
+                let updated: Partial<User> = { ...user };
+                if (next > 7) {
+                  next = 1;
+                  const currentWeek = typeof user.pregnancyWeek === 'number' ? user.pregnancyWeek : 1;
+                  const nextWeek = Math.min(currentWeek + 1, 42);
+                  updated.pregnancyWeek = nextWeek;
+                  updated.trimester = nextWeek <= 13 ? 1 : nextWeek <= 27 ? 2 : 3;
+                }
+                (updated as any).weekDay = next;
+                setUser(updated);
+                localStorage.setItem('userData', JSON.stringify(updated));
+                window.dispatchEvent(new Event('userUpdated'));
+              }} className="px-3 py-1 bg-pink-100 text-pink-700 rounded">Advance Day</button>
+              {editMode && (
+                <input type="number" min={1} max={7} value={(user as any).weekDay ?? 1} onChange={(e) => setUser({ ...user, ...( { weekDay: e.target.value ? parseInt(e.target.value) : 1 } as any) })} className="w-20 px-2 py-1 border rounded" />
+              )}
             </div>
           </div>
         </div>
