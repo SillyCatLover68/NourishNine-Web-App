@@ -1,6 +1,6 @@
 # Pregnancy Nutrition Tracker - MVP
 
-A  web-app to help pregnant women in making safe, affordable and healthy food choices.
+A web-app to help pregnant women in making safe, affordable and healthy food choices.
 
 ## Tech Stack
 
