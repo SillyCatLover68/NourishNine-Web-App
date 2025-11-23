@@ -121,9 +121,6 @@ export default function Meals() {
     effectivePercent = Math.min(1, todaysCaloriesVal / Math.max(1, recommendedCalories));
   }
 
-  const intakeLabel = effectivePercent >= 0.75 ? 'Good' : effectivePercent >= 0.4 ? 'Medium' : 'Poor';
-  const intakeColor = effectivePercent >= 0.75 ? 'bg-green-600' : effectivePercent >= 0.4 ? 'bg-yellow-500' : 'bg-red-600';
-
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="container mx-auto px-4 max-w-6xl">
