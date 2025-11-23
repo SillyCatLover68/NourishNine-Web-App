@@ -79,6 +79,14 @@ export default function Profile() {
   const snacksCount = todays.filter(e => e.mealType === 'Snack').length;
 
   const intake = scoreIntake(todays);
+  const [history, setHistory] = useState<{ date: string; entries: LogEntry[] }[]>([]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('foodLogHistory');
+      if (raw) setHistory(JSON.parse(raw));
+    } catch (e) { setHistory([]); }
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -284,6 +292,19 @@ export default function Profile() {
               ))}
             </ul>
           </div>
+        </div>
+
+        <div className="bg-white p-6 rounded shadow mb-6">
+          <h3 className="font-semibold mb-2">Archived Days</h3>
+          {history.length === 0 && <div className="text-gray-600">No archived days yet.</div>}
+          <ul className="space-y-2">
+            {history.slice(0, 10).map(h => (
+              <li key={h.date} className="p-2 border rounded bg-gray-50">
+                <div className="font-medium">{h.date} <span className="text-sm text-gray-500">({h.entries.length} items)</span></div>
+                <div className="text-sm text-gray-600 mt-1">{h.entries.map(en => `${en.name} (${en.mealType})`).join(', ')}</div>
+              </li>
+            ))}
+          </ul>
         </div>
 
         <div className="text-center">

@@ -141,6 +141,33 @@ export default function SignUp() {
                 </div>
               </div>
               {authError && <p className="text-sm text-red-600 mt-2">{authError}</p>}
+              <div className="mt-4 flex items-center gap-2">
+                <button
+                  onClick={async () => {
+                    setAuthError('');
+                    if (isFirebaseConfigured && auth) {
+                      try {
+                        setLoading(true);
+                        const provider = new GoogleAuthProvider();
+                        const cred = await signInWithPopup(auth, provider);
+                        // persist any collected userData locally
+                        const sanitizeNumeric = (n: any) => (typeof n === 'number' && n > 0 ? n : undefined);
+                        const sanitizedUser = { ...userData, weight: sanitizeNumeric(userData.weight), height: sanitizeNumeric(userData.height) };
+                        localStorage.setItem('userData', JSON.stringify(sanitizedUser));
+                        navigate('/dashboard');
+                      } catch (e: any) {
+                        setAuthError(e?.message || 'Google sign-in failed');
+                      } finally { setLoading(false); }
+                    } else {
+                      setAuthError('Firebase not configured.');
+                    }
+                  }}
+                  disabled={loading}
+                  className="px-4 py-2 border rounded-lg bg-white text-gray-700 hover:bg-gray-50"
+                >
+                  Sign up with Google
+                </button>
+              </div>
             </div>
           )}
 
@@ -191,6 +218,26 @@ export default function SignUp() {
                     className="px-4 py-2 border rounded-lg bg-white text-gray-700 hover:bg-gray-50"
                   >
                     {loading ? 'Signing in…' : 'Sign in with Google'}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setAuthError('');
+                      if (!isFirebaseConfigured || !auth) {
+                        setAuthError('Firebase not configured.');
+                        return;
+                      }
+                      if (!email) { setAuthError('Enter your email to reset password'); return; }
+                      try {
+                        setLoading(true);
+                        await sendPasswordResetEmail(auth, email);
+                        setAuthError('Password reset email sent (check your inbox)');
+                      } catch (e: any) {
+                        setAuthError(e?.message || 'Failed to send reset email');
+                      } finally { setLoading(false); }
+                    }}
+                    className="px-4 py-2 border rounded-lg bg-white text-gray-700 hover:bg-gray-50"
+                  >
+                    Forgot password?
                   </button>
 
                   <button

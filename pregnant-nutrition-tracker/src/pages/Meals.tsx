@@ -17,15 +17,16 @@ export default function Meals() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editCalories, setEditCalories] = useState<string>('');
   const [editNutrientsRaw, setEditNutrientsRaw] = useState<string>('');
+  const [editNotes, setEditNotes] = useState<string>('');
   const [newFoodName, setNewFoodName] = useState('');
   const [newMealType, setNewMealType] = useState('Breakfast');
-  const [newNotes, setNewNotes] = useState('');
+    // const [newNotes, setNewNotes] = useState('');
 
   const handleLogFood = async () => {
     const name = newFoodName.trim();
     if (!name) return;
 
-    const entry: any = { id: Date.now(), name, mealType: newMealType, notes: newNotes.trim() || undefined, time: new Date().toISOString() };
+      const entry: any = { id: Date.now(), name, mealType: newMealType, time: new Date().toISOString() };
 
     const updated = [entry, ...foodLog];
     setFoodLog(updated);
@@ -33,7 +34,7 @@ export default function Meals() {
 
     if (entry.nutrientAmounts) addProgress(entry.nutrientAmounts as Record<string, number>);
 
-    setNewFoodName(''); setNewNotes('');
+      setNewFoodName('');
     // Try to persist the food log to server (will write to Firestore if server has Admin SDK and token is valid)
     try {
       const token = await getCurrentIdToken();
@@ -88,8 +89,12 @@ export default function Meals() {
     }
   });
 
+  // compute today's total calories as fallback for intake assessment
+  // compute today's total calories is computed later as todaysCaloriesVal
+
   // compute an average percent across tracked nutrients (clamped)
   let avgPercent = 0;
+  let nutrientCount = 0;
   if (nutrientDefs && nutrientDefs.length > 0) {
     let sum = 0;
     let count = 0;
@@ -101,9 +106,23 @@ export default function Meals() {
       }
     });
     avgPercent = count > 0 ? sum / count : 0;
+    nutrientCount = count;
   }
-  const intakeLabel = avgPercent >= 0.75 ? 'Good' : avgPercent >= 0.4 ? 'Medium' : 'Poor';
-  const intakeColor = avgPercent >= 0.75 ? 'bg-green-600' : avgPercent >= 0.4 ? 'bg-yellow-500' : 'bg-red-600';
+  // If there are no nutrient targets tracked today, fall back to calories-based assessment
+  const todaysCaloriesVal = todays.reduce((s, e) => s + (Number((e as any).calories) || 0), 0);
+  const savedUser = typeof window !== 'undefined' ? localStorage.getItem('userData') : null;
+  const parsedUser = savedUser ? JSON.parse(savedUser) : ({} as any);
+  let recommendedCalories = 2000;
+  if (parsedUser.trimester === 2) recommendedCalories += 340;
+  if (parsedUser.trimester === 3) recommendedCalories += 450;
+
+  let effectivePercent = avgPercent;
+  if (nutrientCount === 0 && todaysCaloriesVal > 0) {
+    effectivePercent = Math.min(1, todaysCaloriesVal / Math.max(1, recommendedCalories));
+  }
+
+  const intakeLabel = effectivePercent >= 0.75 ? 'Good' : effectivePercent >= 0.4 ? 'Medium' : 'Poor';
+  const intakeColor = effectivePercent >= 0.75 ? 'bg-green-600' : effectivePercent >= 0.4 ? 'bg-yellow-500' : 'bg-red-600';
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -137,13 +156,6 @@ export default function Meals() {
               <option>Snack</option>
             </select>
             <div className="flex items-center gap-2">
-              <input
-                type="text"
-                placeholder="Notes (optional)"
-                value={newNotes}
-                onChange={e => setNewNotes(e.target.value)}
-                className="px-3 py-2 border rounded-lg flex-1"
-              />
               <button
                 onClick={() => { (document.activeElement as HTMLElement)?.blur(); handleLogFood(); }}
                 className="px-4 py-2 border rounded-lg hover:bg-gray-50"
@@ -188,6 +200,7 @@ export default function Meals() {
                       {editingId === entry.id ? (
                         <div className="flex flex-col items-end gap-2">
                           <input className="w-40 px-2 py-1 border rounded" type="number" placeholder="Calories" value={editCalories} onChange={e => setEditCalories(e.target.value)} />
+                          <input className="w-40 px-2 py-1 border rounded" type="text" placeholder="Notes (optional)" value={editNotes} onChange={e => setEditNotes(e.target.value)} />
                           <input className="w-40 px-2 py-1 border rounded" type="text" placeholder="Nutrients (Protein:10, Iron:2)" value={editNutrientsRaw} onChange={e => setEditNutrientsRaw(e.target.value)} />
                           <div className="flex gap-2">
                             <button onClick={() => {
@@ -210,6 +223,7 @@ export default function Meals() {
                                   });
                                 }
                                 const newEntry: any = { ...f };
+                                if (editNotes && editNotes.trim()) newEntry.notes = editNotes.trim(); else delete newEntry.notes;
                                 if (newNutrients) newEntry.nutrientAmounts = newNutrients; else delete newEntry.nutrientAmounts;
                                 if (editCalories && !isNaN(Number(editCalories))) newEntry.calories = Number(editCalories); else delete newEntry.calories;
                                 // add new progress
@@ -220,6 +234,7 @@ export default function Meals() {
                               });
                               setFoodLog(updatedLog);
                               localStorage.setItem('foodLog', JSON.stringify(updatedLog));
+                              setEditNotes('');
                               setEditingId(null);
                             }} className="px-3 py-1 bg-pink-600 text-white rounded text-sm">Save</button>
                             <button onClick={() => { setEditingId(null); }} className="px-3 py-1 bg-gray-100 rounded text-sm">Cancel</button>
@@ -231,6 +246,7 @@ export default function Meals() {
                             setEditingId(entry.id);
                             setEditCalories(((entry as any).calories || '').toString());
                             setEditNutrientsRaw(((entry as any).nutrientAmounts) ? Object.entries((entry as any).nutrientAmounts).map(([k,v]) => `${k}:${v}`).join(', ') : '');
+                            setEditNotes(((entry as any).notes) || '');
                           }} className="text-sm px-3 py-1 bg-yellow-100 text-yellow-700 rounded">Edit</button>
                           <button
                             onClick={() => {
