@@ -13,35 +13,19 @@ export default function Meals() {
     maxCost: '',
     nutrients: [] as string[]
   });
-  const [foodLog, setFoodLog] = useState<{ id: number; name: string; mealType: string; notes?: string; time: string }[]>([]);
+  const [foodLog, setFoodLog] = useState<{ id: number; name: string; mealType: string; notes?: string; time: string; calories?: number; nutrientAmounts?: Record<string, number> }[]>([]);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editCalories, setEditCalories] = useState<string>('');
+  const [editNutrientsRaw, setEditNutrientsRaw] = useState<string>('');
   const [newFoodName, setNewFoodName] = useState('');
   const [newMealType, setNewMealType] = useState('Breakfast');
   const [newNotes, setNewNotes] = useState('');
-  const [newCalories, setNewCalories] = useState<string>('');
-  const [newNutrientsRaw, setNewNutrientsRaw] = useState<string>(''); // format: "Protein:10, Iron:2"
 
   const handleLogFood = async () => {
     const name = newFoodName.trim();
     if (!name) return;
 
-    // Parse manual nutrient input (format: "Protein:10, Iron:2")
-    let nutrientAmounts: Record<string, number> | undefined = undefined;
-    if (newNutrientsRaw.trim()) {
-      try {
-        nutrientAmounts = {};
-        newNutrientsRaw.split(',').forEach(part => {
-          const [k, v] = part.split(':').map(s => s.trim());
-          const num = Number(v);
-          if (k && !isNaN(num)) nutrientAmounts![k] = num;
-        });
-      } catch (e) {
-        nutrientAmounts = undefined;
-      }
-    }
-
     const entry: any = { id: Date.now(), name, mealType: newMealType, notes: newNotes.trim() || undefined, time: new Date().toISOString() };
-    if (nutrientAmounts) entry.nutrientAmounts = nutrientAmounts;
-    if (newCalories && !isNaN(Number(newCalories))) entry.calories = Number(newCalories);
 
     const updated = [entry, ...foodLog];
     setFoodLog(updated);
@@ -49,7 +33,7 @@ export default function Meals() {
 
     if (entry.nutrientAmounts) addProgress(entry.nutrientAmounts as Record<string, number>);
 
-    setNewFoodName(''); setNewNotes(''); setNewCalories(''); setNewNutrientsRaw('');
+    setNewFoodName(''); setNewNotes('');
     // Try to persist the food log to server (will write to Firestore if server has Admin SDK and token is valid)
     try {
       const token = await getCurrentIdToken();
@@ -155,17 +139,10 @@ export default function Meals() {
             <div className="flex items-center gap-2">
               <input
                 type="text"
-                placeholder="Nutrients (Protein:10, Iron:2)"
-                value={newNutrientsRaw}
-                onChange={e => setNewNutrientsRaw(e.target.value)}
-                className="px-3 py-2 border rounded-lg"
-              />
-              <input
-                type="number"
-                placeholder="Calories"
-                value={newCalories}
-                onChange={e => setNewCalories(e.target.value)}
-                className="w-24 px-3 py-2 border rounded-lg"
+                placeholder="Notes (optional)"
+                value={newNotes}
+                onChange={e => setNewNotes(e.target.value)}
+                className="px-3 py-2 border rounded-lg flex-1"
               />
               <button
                 onClick={() => { (document.activeElement as HTMLElement)?.blur(); handleLogFood(); }}
@@ -193,31 +170,82 @@ export default function Meals() {
         </div>
 
         {/* Today's Log */}
-        {foodLog.length > 0 && (
+        {todays.length > 0 && (
           <div className="bg-white rounded-lg shadow-md p-6 mb-8">
             <h3 className="font-semibold mb-2">Today's Log</h3>
             <ul className="space-y-2">
-              {foodLog.map(entry => (
-                <li key={entry.id} className="p-2 border rounded-lg bg-gray-50 flex justify-between items-start">
-                  <div>
-                    <div className="font-medium">{entry.name} <span className="text-xs text-gray-500">({entry.mealType})</span></div>
-                    {entry.notes && <div className="text-sm text-gray-600">{entry.notes}</div>}
-                    {entry.calories !== undefined && <div className="text-sm text-gray-700">Calories: {entry.calories}</div>}
-                    {entry.nutrientAmounts && <div className="text-sm text-gray-700">Nutrients: {Object.entries(entry.nutrientAmounts).map(([k,v]) => `${k}:${v}`).join(', ')}</div>}
-                    <div className="text-xs text-gray-400">{new Date(entry.time).toLocaleString()}</div>
-                  </div>
-                  <div>
-                    <button
-                      onClick={() => {
-                        if ((entry as any).nutrientAmounts) {
-                          try { subtractProgress((entry as any).nutrientAmounts as Record<string, number>); } catch (e) {}
-                        }
-                        const updated = foodLog.filter(f => f.id !== entry.id);
-                        setFoodLog(updated);
-                        localStorage.setItem('foodLog', JSON.stringify(updated));
-                      }}
-                      className="text-sm text-red-600 hover:text-red-700"
-                    >Remove</button>
+              {todays.map(entry => (
+                <li key={entry.id} className="p-2 border rounded-lg bg-gray-50">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="font-medium">{entry.name} <span className="text-xs text-gray-500">({entry.mealType})</span></div>
+                      {entry.notes && <div className="text-sm text-gray-600">{entry.notes}</div>}
+                      {entry.calories !== undefined && <div className="text-sm text-gray-700">Calories: {entry.calories}</div>}
+                      {entry.nutrientAmounts && <div className="text-sm text-gray-700">Nutrients: {Object.entries(entry.nutrientAmounts).map(([k,v]) => `${k}:${v}`).join(', ')}</div>}
+                      <div className="text-xs text-gray-400">{new Date(entry.time).toLocaleString()}</div>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      {editingId === entry.id ? (
+                        <div className="flex flex-col items-end gap-2">
+                          <input className="w-40 px-2 py-1 border rounded" type="number" placeholder="Calories" value={editCalories} onChange={e => setEditCalories(e.target.value)} />
+                          <input className="w-40 px-2 py-1 border rounded" type="text" placeholder="Nutrients (Protein:10, Iron:2)" value={editNutrientsRaw} onChange={e => setEditNutrientsRaw(e.target.value)} />
+                          <div className="flex gap-2">
+                            <button onClick={() => {
+                              // Save edits
+                              const updatedLog = foodLog.map(f => {
+                                if (f.id !== entry.id) return f;
+                                const origNutrients = (f as any).nutrientAmounts as Record<string, number> | undefined;
+                                // subtract original progress
+                                if (origNutrients) {
+                                  try { subtractProgress(origNutrients); } catch (e) {}
+                                }
+                                // parse new nutrients
+                                let newNutrients: Record<string, number> | undefined = undefined;
+                                if (editNutrientsRaw.trim()) {
+                                  newNutrients = {};
+                                  editNutrientsRaw.split(',').forEach(part => {
+                                    const [k, v] = part.split(':').map(s => s.trim());
+                                    const num = Number(v);
+                                    if (k && !isNaN(num)) newNutrients![k] = num;
+                                  });
+                                }
+                                const newEntry: any = { ...f };
+                                if (newNutrients) newEntry.nutrientAmounts = newNutrients; else delete newEntry.nutrientAmounts;
+                                if (editCalories && !isNaN(Number(editCalories))) newEntry.calories = Number(editCalories); else delete newEntry.calories;
+                                // add new progress
+                                if (newEntry.nutrientAmounts) {
+                                  try { addProgress(newEntry.nutrientAmounts as Record<string, number>); } catch (e) {}
+                                }
+                                return newEntry;
+                              });
+                              setFoodLog(updatedLog);
+                              localStorage.setItem('foodLog', JSON.stringify(updatedLog));
+                              setEditingId(null);
+                            }} className="px-3 py-1 bg-pink-600 text-white rounded text-sm">Save</button>
+                            <button onClick={() => { setEditingId(null); }} className="px-3 py-1 bg-gray-100 rounded text-sm">Cancel</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-end gap-2">
+                          <button onClick={() => {
+                            setEditingId(entry.id);
+                            setEditCalories(((entry as any).calories || '').toString());
+                            setEditNutrientsRaw(((entry as any).nutrientAmounts) ? Object.entries((entry as any).nutrientAmounts).map(([k,v]) => `${k}:${v}`).join(', ') : '');
+                          }} className="text-sm px-3 py-1 bg-yellow-100 text-yellow-700 rounded">Edit</button>
+                          <button
+                            onClick={() => {
+                              if ((entry as any).nutrientAmounts) {
+                                try { subtractProgress((entry as any).nutrientAmounts as Record<string, number>); } catch (e) {}
+                              }
+                              const updated = foodLog.filter(f => f.id !== entry.id);
+                              setFoodLog(updated);
+                              localStorage.setItem('foodLog', JSON.stringify(updated));
+                            }}
+                            className="text-sm text-red-600 hover:text-red-700"
+                          >Remove</button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </li>
               ))}
@@ -282,23 +310,25 @@ export default function Meals() {
                 <div className="text-sm text-gray-700 mt-2">Calories: {meal.calories}</div>
               )}
 
-              <div className="mt-4 flex gap-2">
+              <div className="mt-4 flex justify-end">
                 <button
-                  onClick={() => {
-                      const entry: any = { id: Date.now(), name: meal.name, mealType: 'Meal', notes: meal.ingredients.join(', '), time: new Date().toISOString() };
-                      if ((meal as any).nutrientAmounts) entry.nutrientAmounts = (meal as any).nutrientAmounts;
-                      if ((meal as any).calories !== undefined) entry.calories = (meal as any).calories;
-                      const updated = [entry, ...foodLog];
-                      setFoodLog(updated);
-                      localStorage.setItem('foodLog', JSON.stringify(updated));
-                      // update nutrient progress if meal defines amounts
-                      if (entry.nutrientAmounts) {
-                        addProgress(entry.nutrientAmounts as Record<string, number>);
-                      }
-                    }}
+                  onClick={async () => {
+                    const entry: any = { id: Date.now(), name: meal.name, mealType: newMealType || 'Meal', notes: meal.ingredients.join(', '), time: new Date().toISOString() };
+                    if ((meal as any).nutrientAmounts) entry.nutrientAmounts = (meal as any).nutrientAmounts;
+                    if ((meal as any).calories !== undefined) entry.calories = (meal as any).calories;
+                    const updated = [entry, ...foodLog];
+                    setFoodLog(updated);
+                    localStorage.setItem('foodLog', JSON.stringify(updated));
+                    if (entry.nutrientAmounts) addProgress(entry.nutrientAmounts as Record<string, number>);
+                    // best-effort server persist
+                    try {
+                      const token = await getCurrentIdToken();
+                      await fetch('/api/foodlog', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(entry) });
+                    } catch (e) {}
+                  }}
                   className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
                 >
-                  Log this meal
+                  Add to Log
                 </button>
               </div>
             </div>

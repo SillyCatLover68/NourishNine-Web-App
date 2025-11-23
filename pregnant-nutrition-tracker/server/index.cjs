@@ -142,6 +142,39 @@ try {
     }
   });
 
+  // Delete entire user account data (profiles + foodLogs) - requires ID token
+  app.delete('/api/account', async (req, res) => {
+    let uid = null;
+    try {
+      const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+      const idToken = (authHeader && authHeader.startsWith('Bearer ')) ? authHeader.slice(7) : (req.body && req.body.idToken) || req.query.idToken;
+      if (!idToken) return res.status(401).json({ error: 'missing id token' });
+      if (!admin || !admin.auth) return res.status(500).json({ error: 'Firebase admin not initialized' });
+      const decoded = await admin.auth().verifyIdToken(idToken);
+      uid = decoded && decoded.uid ? decoded.uid : null;
+      if (!uid) return res.status(401).json({ error: 'invalid token' });
+    } catch (e) {
+      console.warn('server: verifyIdToken failed for account delete', e && e.message ? e.message : e);
+      return res.status(401).json({ error: 'token verification failed' });
+    }
+
+    try {
+      if (admin && admin.firestore) {
+        // Delete profile doc
+        await admin.firestore().collection('profiles').doc(uid).delete().catch(() => {});
+        // Delete user's foodLogs
+        const snaps = await admin.firestore().collection('foodLogs').where('userId', '==', uid).get();
+        const batch = admin.firestore().batch();
+        snaps.forEach(s => batch.delete(s.ref));
+        await batch.commit();
+      }
+      return res.status(200).json({ ok: true });
+    } catch (e) {
+      console.error('server: failed to delete account data', e && e.message ? e.message : e);
+      return res.status(500).json({ error: 'failed to delete account data' });
+    }
+  });
+
   const PORT = process.env.PORT || 4000;
   app.listen(PORT, () => {
     console.log(`Server API listening on port ${PORT}`);

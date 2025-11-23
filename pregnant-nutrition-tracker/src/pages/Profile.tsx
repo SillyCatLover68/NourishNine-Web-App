@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { auth, isFirebaseConfigured } from '../lib/firebase';
 import getCurrentIdToken from '../lib/firebaseAuth';
 import { signOut } from 'firebase/auth';
+import { resetProgress } from '../lib/nutrientProgress';
 import type { User } from '../types';
 
 type LogEntry = { id: number; name: string; mealType: string; notes?: string; time: string };
@@ -89,6 +90,7 @@ export default function Profile() {
               {isFirebaseConfigured && auth && auth.currentUser && (
                 <button
                   onClick={async () => {
+                    if (!confirm('Sign out? You will need to log in again to access server-synced data.')) return;
                     try {
                       if (auth) await signOut(auth);
                     } catch (e) {}
@@ -109,13 +111,17 @@ export default function Profile() {
               </button>
               <button
                 onClick={async () => {
-                  if (!confirm('Delete your local profile? This will remove stored profile data and (optionally) delete your server profile.')) return;
+                  if (!confirm('Delete your profile and all server-side data? This cannot be undone.')) return;
                   const token = await (isFirebaseConfigured ? getCurrentIdToken() : null);
                   try {
-                    if (token) await fetch('/api/profile', { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+                    if (token) await fetch('/api/account', { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
                   } catch (e) {}
                   localStorage.removeItem('userData');
+                  // also clear local logs and progress
+                  localStorage.removeItem('foodLog');
+                  localStorage.removeItem('nutrientProgress');
                   window.dispatchEvent(new Event('userUpdated'));
+                  window.dispatchEvent(new Event('foodLogUpdated'));
                   try { if (isFirebaseConfigured && auth) await signOut(auth); } catch (e) {}
                   navigate('/');
                 }}
@@ -198,11 +204,47 @@ export default function Profile() {
             <p className="text-sm text-gray-600">Day of Week</p>
             <div className="flex items-center gap-3">
               <div className="font-medium">{(user as any).weekDay ?? 1}</div>
-              <button onClick={() => {
-                // Advance day, wrap at 7 and advance week
+              <button onClick={async () => {
+                if (!confirm('Advance day? This will archive today\'s logs and reset hydration and daily progress.')) return;
+                // Archive today's data, then reset hydration, calories (via foodLog), and nutrient progress
+                const todayStr = new Date().toLocaleDateString();
+                const rawLog = localStorage.getItem('foodLog');
+                const allLog = rawLog ? JSON.parse(rawLog) : [];
+                const todaysEntries = allLog.filter((e: any) => new Date(e.time).toLocaleDateString() === todayStr);
+                // Save to history
+                try {
+                  const rawHistory = localStorage.getItem('foodLogHistory');
+                  const history = rawHistory ? JSON.parse(rawHistory) : [];
+                  history.unshift({ date: todayStr, entries: todaysEntries });
+                  localStorage.setItem('foodLogHistory', JSON.stringify(history));
+                } catch (e) {}
+                // Optionally persist archived entries to server (best-effort)
+                try {
+                  const token = await (isFirebaseConfigured ? getCurrentIdToken() : null);
+                  if (token && todaysEntries.length > 0) {
+                    for (const ent of todaysEntries) {
+                      try {
+                        await fetch('/api/foodlog', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(ent) });
+                      } catch (e) {}
+                    }
+                  }
+                } catch (e) {}
+
+                // Remove today's entries from local foodLog
+                const remaining = allLog.filter((e: any) => new Date(e.time).toLocaleDateString() !== todayStr);
+                localStorage.setItem('foodLog', JSON.stringify(remaining));
+                window.dispatchEvent(new Event('foodLogUpdated'));
+                // Reset nutrient progress and hydration
+                try { resetProgress(); } catch (e) {}
+                const updatedUser: Partial<User> = { ...user, hydrationCups: 0 };
+                setUser(updatedUser);
+                localStorage.setItem('userData', JSON.stringify(updatedUser));
+                window.dispatchEvent(new Event('userUpdated'));
+
+                // Advance day/week logic
                 const current = typeof (user as any).weekDay === 'number' ? (user as any).weekDay : 1;
                 let next = current + 1;
-                let updated: Partial<User> = { ...user };
+                let updated: Partial<User> = { ...updatedUser };
                 if (next > 7) {
                   next = 1;
                   const currentWeek = typeof user.pregnancyWeek === 'number' ? user.pregnancyWeek : 1;

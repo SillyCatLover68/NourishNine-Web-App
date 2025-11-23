@@ -61,6 +61,17 @@ export default function Dashboard() {
   const recommendedHydration = 8;
   const goodHydration = 12;
 
+  // Calories tracker (sum of today's logged calories)
+  const rawLog = typeof window !== 'undefined' ? localStorage.getItem('foodLog') : null;
+  const parsedLog = rawLog ? JSON.parse(rawLog) : [];
+  const todayStr = new Date().toLocaleDateString();
+  const todaysCalories = parsedLog.filter((e: any) => new Date(e.time).toLocaleDateString() === todayStr).reduce((sum: number, e: any) => sum + (Number(e.calories) || 0), 0);
+  // Recommended calories heuristic (matches Profile page): base 2000, adjust by trimester
+  let recommendedCalories = 2000;
+  if (user.trimester === 2) recommendedCalories += 340;
+  if (user.trimester === 3) recommendedCalories += 450;
+  const caloriesPercent = Math.min((todaysCalories / Math.max(1, recommendedCalories)) * 100, 100);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
@@ -126,6 +137,30 @@ export default function Dashboard() {
             >
               Reset
             </button>
+          </div>
+        </div>
+
+        {/* Calories Tracker */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="flex items-center gap-3 mb-4">
+            <Utensils className="w-6 h-6 text-orange-500" />
+            <h2 className="text-xl font-semibold">Calories Tracker</h2>
+          </div>
+          <div className="mb-2">
+            <div className="flex justify-between mb-1">
+              <span className="text-sm font-medium">Today: {todaysCalories} kcal</span>
+              <span className="text-sm text-gray-500">Recommended: {recommendedCalories} kcal</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3">
+              <div
+                className={`h-3 rounded-full transition-all ${todaysCalories >= recommendedCalories ? 'bg-green-500' : todaysCalories >= (recommendedCalories * 0.75) ? 'bg-yellow-500' : 'bg-blue-500'}`}
+                style={{ width: `${caloriesPercent}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-xs text-gray-500 mt-1">
+              <span>Goal: {recommendedCalories} kcal</span>
+              <span>{Math.round(caloriesPercent)}%</span>
+            </div>
           </div>
         </div>
 
